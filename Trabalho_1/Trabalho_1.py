@@ -11,18 +11,23 @@ class Node:
         self.action = action
         self.g = g
         self.h = h
+
     def get_f_score(self): return self.g + self.h
+    
     def __lt__(self, other): return self.get_f_score() < other.get_f_score()
 
 # --- Funções Auxiliares ---
 def find_pos(state, value):
+    """Finds the position (row, col) of a value in the 3x3 state."""
     for r in range(3):
         for c in range(3):
             if state[r][c] == value: return r, c
     return None
 
 def reconstruct_solution_path(final_node):
-    if not final_node: return []
+    """Reconstructs the solution path from the final node to the initial node."""
+    if not final_node: 
+        return []
     path = []
     current_node = final_node
     while current_node.parent is not None:
@@ -32,13 +37,18 @@ def reconstruct_solution_path(final_node):
     return path
 
 def get_all_successors(node):
+    """Generates all valid successor nodes from the current node."""
     successors = []
     state = node.state
     empty_pos = find_pos(state, 0)
-    if empty_pos is None: return []
+
+    if empty_pos is None: 
+        return []
+    
     empty_row, empty_col = empty_pos
     possible_moves = [(-1, 0, 'UP'), (1, 0, 'DOWN'), (0, -1, 'LEFT'), (0, 1, 'RIGHT')]
     new_g_score = node.g + 1
+    
     for dr, dc, move_name in possible_moves:
         new_row, new_col = empty_row + dr, empty_col + dc
         if 0 <= new_row < 3 and 0 <= new_col < 3:
@@ -54,16 +64,25 @@ def get_all_successors(node):
     return successors
 
 # --- Funções de Heurística ---
-def h_uniform_cost(state, goal_state): return 0
-def h_non_admissible(state, goal_state): return h_manhattan_distance(state, goal_state) * 3
+def h_uniform_cost(state, goal_state):
+    """Calculates the uniform cost heuristic for the 8-puzzle."""
+    return 0
+
+def h_non_admissible(state, goal_state): 
+    """Calculates a non-admissible heuristic for the 8-puzzle."""
+    return h_manhattan_distance(state, goal_state) * 3
+
 def h_misplaced_tiles(state, goal_state):
+    """Calculates the number of misplaced tiles heuristic for the 8-puzzle."""
     misplaced = 0
     for r in range(3):
         for c in range(3):
             if state[r][c] != goal_state[r][c] and state[r][c] != 0:
                 misplaced += 1
     return misplaced
+
 def h_manhattan_distance(state, goal_state):
+    """Calculates the Manhattan distance heuristic for the 8-puzzle."""
     dist = 0
     for r in range(3):
         for c in range(3):
@@ -76,10 +95,12 @@ def h_manhattan_distance(state, goal_state):
 
 # --- Algoritmo A* com Visualização Opcional ---
 def a_star_search(initial_state, goal_state, heuristic_func, visualize_steps=False):
+    """Performs the A* search algorithm to solve the 8-puzzle."""
     initial_h = heuristic_func(initial_state, goal_state)
     initial_node = Node(state=initial_state, g=0, h=initial_h)
     open_list_heap = [initial_node]
     closed_dict = {}
+    open_dict = {tuple(map(tuple, initial_state)): initial_node}  # Track nodes in open list
     iteration_counter = 0
 
     while open_list_heap:
@@ -101,6 +122,11 @@ def a_star_search(initial_state, goal_state, heuristic_func, visualize_steps=Fal
 
         current_node = heapq.heappop(open_list_heap)
         current_state_tuple = tuple(map(tuple, current_node.state))
+        
+        # Remove from open list tracking
+        if current_state_tuple in open_dict:
+            del open_dict[current_state_tuple]
+            
         if current_state_tuple in closed_dict: continue
 
         # --- MUDANÇA 2: Armazena o Node inteiro nos VISITADOS ---
@@ -109,15 +135,26 @@ def a_star_search(initial_state, goal_state, heuristic_func, visualize_steps=Fal
         if visualize_steps:
             print(f"\n--> Expandindo: {current_node.state} com custo g={current_node.g}")
 
-        if current_node.state == goal_state:
+        # Check if we reached the goal
+        if current_state_tuple == tuple(map(tuple, goal_state)):
             if visualize_steps: print("\n" + "*"*10 + " SOLUÇÃO ENCONTRADA! " + "*"*10)
             return {"solution_path": reconstruct_solution_path(current_node), "nodes_visited": len(closed_dict)}
 
         for successor_node in get_all_successors(current_node):
             successor_state_tuple = tuple(map(tuple, successor_node.state))
             if successor_state_tuple not in closed_dict:
-                successor_node.h = heuristic_func(successor_state_tuple, goal_state)
-                heapq.heappush(open_list_heap, successor_node)
+                successor_node.h = heuristic_func(successor_node.state, goal_state)
+                
+                # Check if this state is already in open list with better g-score
+                if successor_state_tuple in open_dict:
+                    existing_node = open_dict[successor_state_tuple]
+                    if successor_node.g < existing_node.g:
+                        # Remove the existing node (will be ignored when popped due to closed list check)
+                        open_dict[successor_state_tuple] = successor_node
+                        heapq.heappush(open_list_heap, successor_node)
+                else:
+                    open_dict[successor_state_tuple] = successor_node
+                    heapq.heappush(open_list_heap, successor_node)
         iteration_counter += 1
     return None
 
@@ -137,12 +174,16 @@ if __name__ == "__main__":
     }
 
     print("Escolha o tabuleiro inicial:")
-    for key in initial_states: print(f"- {key}")
+    for key in initial_states: 
+        print(f"- {key}")
+    
     board_choice = input("Digite sua escolha: ").lower()
     initial_state = initial_states.get(board_choice, initial_states["medio"])
 
     print("\nEscolha a heurística:")
-    for key, (name, _) in heuristics.items(): print(f"{key}: {name}")
+    for key, (name, _) in heuristics.items(): 
+        print(f"{key}: {name}")
+    
     heuristic_choice = input("Digite sua escolha (1-4): ")
     heuristic_name, heuristic_func = heuristics.get(heuristic_choice, heuristics["4"])
 
@@ -162,7 +203,9 @@ if __name__ == "__main__":
         print(f"Solução encontrada com {len(path)} movimentos.")
         print(f"Total de nós expandidos (visitados): {result['nodes_visited']}")
         print(f"Tempo de execução: {execution_time:.4f} segundos")
-        output_filename = f"solucao_{heuristic_name.replace(' ', '_').lower()}.json"
+        # Fix filename generation to avoid invalid characters for Windows
+        safe_name = heuristic_name.replace(' ', '_').replace('*', 'estrela').lower()
+        output_filename = f"solucao_{safe_name}.json"
         with open(output_filename, 'w', encoding='utf-8') as f:
             json.dump(path, f, indent=4, ensure_ascii=False)
         print(f"Caminho detalhado salvo em '{output_filename}'")

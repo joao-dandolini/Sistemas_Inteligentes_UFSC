@@ -96,6 +96,7 @@ def h_manhattan_distance(state, goal_state):
 # --- Algoritmo A* com Visualização Opcional ---
 def a_star_search(initial_state, goal_state, heuristic_func, visualize_steps=False):
     """Performs the A* search algorithm to solve the 8-puzzle."""
+    max_frontier_size = 0
     initial_h = heuristic_func(initial_state, goal_state)
     initial_node = Node(state=initial_state, g=0, h=initial_h)
     open_list_heap = [initial_node]
@@ -137,8 +138,15 @@ def a_star_search(initial_state, goal_state, heuristic_func, visualize_steps=Fal
 
         # Check if we reached the goal
         if current_state_tuple == tuple(map(tuple, goal_state)):
-            if visualize_steps: print("\n" + "*"*10 + " SOLUÇÃO ENCONTRADA! " + "*"*10)
-            return {"solution_path": reconstruct_solution_path(current_node), "nodes_visited": len(closed_dict)}
+            if visualize_steps: 
+                print("\n" + "*"*10 + " SOLUÇÃO ENCONTRADA! " + "*"*10)
+            return {
+                "solution_path": reconstruct_solution_path(current_node), 
+                "nodes_visited": len(closed_dict),
+                "max_frontier_size": max_frontier_size, # <-- Adicionar aqui
+                "final_frontier": open_list_heap,      # <-- Adicionar para o proximo passo
+                "visited_nodes": closed_dict         # <-- Adicionar para o proximo passo
+            }
 
         for successor_node in get_all_successors(current_node):
             successor_state_tuple = tuple(map(tuple, successor_node.state))
@@ -155,6 +163,7 @@ def a_star_search(initial_state, goal_state, heuristic_func, visualize_steps=Fal
                 else:
                     open_dict[successor_state_tuple] = successor_node
                     heapq.heappush(open_list_heap, successor_node)
+        max_frontier_size = max(max_frontier_size, len(open_list_heap))
         iteration_counter += 1
     return None
 
@@ -200,14 +209,48 @@ if __name__ == "__main__":
     if result:
         print("\n" + "="*15 + " RESUMO FINAL " + "="*15)
         path = result['solution_path']
-        print(f"Solução encontrada com {len(path)} movimentos.")
-        print(f"Total de nós expandidos (visitados): {result['nodes_visited']}")
-        print(f"Tempo de execução: {execution_time:.4f} segundos")
-        # Fix filename generation to avoid invalid characters for Windows
+        
+        # Requisito a) - Total de nodos visitados
+        print(f"Total de nos expandidos (visitados): {result['nodes_visited']}")
+
+        # Requisito b) - O tamanho do caminho
+        print(f"Solucao encontrada com {len(path)} movimentos.")
+        
+        # Requisito c) - Tempo de execucao
+        print(f"Tempo de execucao: {execution_time:.4f} segundos")
+        
+        # Requisito d) - O maior tamanho da fronteira
+        print(f"Maior tamanho da fronteira: {result['max_frontier_size']}")
+
+        # Requisito e) - Salvar fronteira e visitados em um arquivo .json
+        # Preparar dados para o JSON, pois objetos e tuplas nao sao serializaveis
+        final_frontier_serializable = [
+            {"state": node.state, "g": node.g, "h": node.h, "f": node.get_f_score()} 
+            for node in result['final_frontier']
+        ]
+        
+        visited_nodes_serializable = {
+            # Converte a chave da tupla para string para ser compativel com JSON
+            str(state_tuple): {"state": [list(row) for row in state_tuple], "g": node.g, "h": node.h, "f": node.get_f_score()} 
+            for state_tuple, node in result['visited_nodes'].items()
+        }
+
+        # Estrutura de dados final para salvar no arquivo
+        output_data = {
+            "tempo_execucao": execution_time,
+            "caminho_solucao": result['solution_path'],
+            "fronteira_no_final": final_frontier_serializable,
+            "nos_visitados": visited_nodes_serializable
+        }
+        
+        # Cria um nome de arquivo seguro
         safe_name = heuristic_name.replace(' ', '_').replace('*', 'estrela').lower()
-        output_filename = f"solucao_{safe_name}.json"
+        output_filename = f"resultado_busca_{board_choice}_{safe_name}.json"
+        
         with open(output_filename, 'w', encoding='utf-8') as f:
-            json.dump(path, f, indent=4, ensure_ascii=False)
-        print(f"Caminho detalhado salvo em '{output_filename}'")
+            json.dump(output_data, f, indent=4, ensure_ascii=False)
+            
+        print(f"Dados completos da busca salvos em '{output_filename}'")
+        
     else:
-        print("Não foi possível encontrar uma solução.")
+        print("Nao foi possivel encontrar uma solucao.")

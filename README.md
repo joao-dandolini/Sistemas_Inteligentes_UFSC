@@ -66,6 +66,7 @@ python Trabalho_1.py
 ```
 Trabalho1/
 ├── README.md
+├── log_files.json
 ├── Trabalho_1/
 │   ├── Trabalho_1.py                    # Código principal
 │   └── resultado_busca_*.json           # Arquivos de saída gerados
